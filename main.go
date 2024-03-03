@@ -86,11 +86,11 @@ func Save_transaksi(idcompany, idcurr string) string {
 		sql_insert := `
 			insert into
 			` + tbl_trx_transaksi + ` (
-				idtransaksi , idcurr, idcompany, datetransaksi,
+				idtransaksi , idcurr, idcompany, datetransaksi, status_transaksi, 
 				create_transaksi, createdate_transaksi 
 			) values (
-				$1, $2, $3, $4, 
-				$5, $6 
+				$1, $2, $3, $4, $5,  
+				$6, $7  
 			)
 		`
 
@@ -100,7 +100,7 @@ func Save_transaksi(idcompany, idcurr string) string {
 		date_transaksi := tglnow.Format("YYYY-MM-DD HH:mm:ss")
 
 		flag_insert, msg_insert := models.Exec_SQL(sql_insert, tbl_trx_transaksi, "INSERT",
-			idrecrodparent_value, idcurr, idcompany, date_transaksi,
+			idrecrodparent_value, idcurr, idcompany, date_transaksi, "OPEN",
 			"SYSTEM", date_transaksi)
 
 		if flag_insert {
@@ -125,13 +125,13 @@ func Update_transaksi(idcompany string) bool {
 		sql_update := `
 				UPDATE 
 				` + tbl_trx_transaksi + `  
-				SET resultwigo=$1,
-				update_transaksi=$2, updatedate_transaksi=$3          
-				WHERE idtransaksi=$4         
+				SET resultwigo=$1, status_transaksi=$2, 
+				update_transaksi=$3, updatedate_transaksi=$4           
+				WHERE idtransaksi=$5          
 			`
 
 		flag_update, msg_update := models.Exec_SQL(sql_update, tbl_trx_transaksi, "UPDATE",
-			prize_2D,
+			prize_2D, "CLOSED",
 			"SYSTEM", tglnow.Format("YYYY-MM-DD HH:mm:ss"), id_invoice)
 
 		if flag_update {
