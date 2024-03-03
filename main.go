@@ -69,7 +69,11 @@ func loop_compile(sec int) bool {
 		sec--
 	}
 	invoice = Save_transaksi("nuke", "IDR")
-	flag_compile = true
+	flag_compile = Update_transaksi("nuke")
+	if !flag_compile {
+		invoice = Save_transaksi("nuke", "IDR")
+	}
+
 	return flag_compile
 }
 func Save_transaksi(idcompany, idcurr string) string {
@@ -107,6 +111,101 @@ func Save_transaksi(idcompany, idcurr string) string {
 
 	return id_invoice
 }
+func Update_transaksi(idcompany string) bool {
+	flag_compile := false
+	tglnow, _ := goment.New()
+	id_invoice := _GetInvoice(idcompany)
+	prize_2D := helpers.GenerateNumber(2)
+
+	if id_invoice != "" {
+		_, tbl_trx_transaksi, tbl_trx_transaksidetail, _ := models.Get_mappingdatabase(idcompany)
+		// UPDATE RESULT PARENT
+		sql_update := `
+				UPDATE 
+				` + tbl_trx_transaksi + `  
+				SET resultwigo=$1,
+				update_transaksi=$2, updatedate_transaksi=$3          
+				WHERE idtransaksi=$4         
+			`
+
+		flag_update, msg_update := models.Exec_SQL(sql_update, tbl_trx_transaksi, "UPDATE",
+			prize_2D,
+			"SYSTEM", tglnow.Format("YYYY-MM-DD HH:mm:ss"), id_invoice)
+
+		if flag_update {
+			con := db.CreateCon()
+			ctx := context.Background()
+			flag_detail := false
+			sql_select_detail := `SELECT 
+					idtransaksidetail , nomor, bet, multiplier
+					FROM ` + tbl_trx_transaksidetail + `  
+					WHERE status_transaksidetail='RUNNING'  
+					AND idtransaksi='` + id_invoice + `'  `
+
+			row, err := con.QueryContext(ctx, sql_select_detail)
+			helpers.ErrorCheck(err)
+			for row.Next() {
+				var (
+					bet_db                         int
+					multiplier_db                  float64
+					idtransaksidetail_db, nomor_db string
+				)
+
+				err = row.Scan(&idtransaksidetail_db, &nomor_db, &bet_db, &multiplier_db)
+				helpers.ErrorCheck(err)
+
+				status_client := _rumuswigo(nomor_db, prize_2D)
+				win := 0
+				if status_client == "WIN" {
+					win = bet_db + int(float64(bet_db)*multiplier_db)
+				}
+
+				// UPDATE STATUS DETAIL
+				sql_update_detail := `
+					UPDATE 
+					` + tbl_trx_transaksidetail + `  
+					SET status_transaksidetail=$1, win=$2, 
+					update_transaksidetail=$3, updatedate_transaksidetail=$4           
+					WHERE idtransaksidetail=$5          
+				`
+				flag_update_detail, msg_update_detail := models.Exec_SQL(sql_update_detail, tbl_trx_transaksidetail, "UPDATE",
+					status_client, win,
+					"SYSTEM", tglnow.Format("YYYY-MM-DD HH:mm:ss"), idtransaksidetail_db)
+
+				if !flag_update_detail {
+					fmt.Println(msg_update_detail)
+				}
+				flag_detail = true
+			}
+			defer row.Close()
+			if flag_detail {
+				// UPDATE PARENT
+				total_bet, total_win := _GetTotalBetWin_Transaksi(tbl_trx_transaksidetail, id_invoice)
+				sql_update_parent := `
+					UPDATE 
+					` + tbl_trx_transaksi + `  
+					SET total_bet=$1, total_win=$2, 
+					update_transaksi=$3, updatedate_transaksi=$4           
+					WHERE idtransaksi=$5       
+				`
+				flag_update_parent, msg_update_parent := models.Exec_SQL(sql_update_parent, tbl_trx_transaksi, "UPDATE",
+					total_bet, total_win,
+					"SYSTEM", tglnow.Format("YYYY-MM-DD HH:mm:ss"), id_invoice)
+
+				if !flag_update_parent {
+					fmt.Println(msg_update_parent)
+				} else {
+					flag_compile = true
+				}
+			}
+
+		} else {
+			fmt.Println(msg_update)
+		}
+	}
+
+	return flag_compile
+}
 func senddata(data string) {
 	helpers.SetPublish("payload", data)
 }
@@ -133,4 +232,33 @@ func _GetInvoice(idcompany string) string {
 	}
 
 	return resultwigo
+}
+func _GetTotalBetWin_Transaksi(table, idtransaksi string) (int, int) {
+	con := db.CreateCon()
+	ctx := context.Background()
+	total_bet := 0
+	total_win := 0
+	sql_select := ""
+	sql_select += "SELECT "
+	sql_select += "SUM(bet) AS total_bet, SUM(win) AS total_win  "
+	sql_select += "FROM " + table + " "
+	sql_select += "WHERE idtransaksi='" + idtransaksi + "'   "
+	sql_select += "AND status_transaksidetail !='RUNNING'   "
+
+	row := con.QueryRowContext(ctx, sql_select)
+	switch e := row.Scan(&total_bet, &total_win); e {
+	case sql.ErrNoRows:
+	case nil:
+	default:
+		helpers.ErrorCheck(e)
+	}
+
+	return total_bet, total_win
+}
+func _rumuswigo(nomorclient, nomorkeluaran string) string {
+	result := "LOSE"
+	if nomorclient == nomorkeluaran {
+		result = "WIN"
+	}
+	return result
 }
