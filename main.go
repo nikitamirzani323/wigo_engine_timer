@@ -225,7 +225,9 @@ func _GetInvoice(idcompany string) string {
 	sql_select += "SELECT "
 	sql_select += "idtransaksi "
 	sql_select += "FROM " + tbl_trx_transaksi + " "
-	sql_select += "WHERE resultwigo='' ORDER BY idtransaksi DESC LIMIT 1"
+	sql_select += "WHERE resultwigo='' "
+	sql_select += "AND status_transaksi='OPEN' "
+	sql_select += "ORDER BY idtransaksi DESC LIMIT 1"
 
 	row := con.QueryRowContext(ctx, sql_select)
 	switch e := row.Scan(&idtransaksi); e {
