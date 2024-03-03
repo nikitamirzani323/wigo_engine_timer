@@ -23,7 +23,7 @@ ENV DB_DRIVER="postgres"
 ENV DB_REDIS_HOST="128.199.124.131"
 ENV DB_REDIS_PORT="6379"
 ENV DB_REDIS_PASSWORD="asdQWE123!@#"
-ENV DB_REDIS_NAME="3"
+ENV DB_REDIS_NAME="6"
 ENV TZ=Asia/Jakarta
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone

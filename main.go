@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -17,6 +18,9 @@ import (
 var invoice = ""
 var time_status = "LOCK"
 var data_send = ""
+
+const invoice_client_redis = "CLIENT_LISTINVOICE"
+const invoice_result_redis = "CLIENT_RESULT"
 
 func main() {
 	time_game := 30
@@ -139,7 +143,7 @@ func Update_transaksi(idcompany string) bool {
 			ctx := context.Background()
 			flag_detail := false
 			sql_select_detail := `SELECT 
-					idtransaksidetail , nomor, bet, multiplier
+					idtransaksidetail , nomor, bet, multiplier, username_client 
 					FROM ` + tbl_trx_transaksidetail + `  
 					WHERE status_transaksidetail='RUNNING'  
 					AND idtransaksi='` + id_invoice + `'  `
@@ -148,12 +152,12 @@ func Update_transaksi(idcompany string) bool {
 			helpers.ErrorCheck(err)
 			for row.Next() {
 				var (
-					bet_db                         int
-					multiplier_db                  float64
-					idtransaksidetail_db, nomor_db string
+					bet_db                                             int
+					multiplier_db                                      float64
+					idtransaksidetail_db, nomor_db, username_client_db string
 				)
 
-				err = row.Scan(&idtransaksidetail_db, &nomor_db, &bet_db, &multiplier_db)
+				err = row.Scan(&idtransaksidetail_db, &nomor_db, &bet_db, &multiplier_db, &username_client_db)
 				helpers.ErrorCheck(err)
 
 				status_client := _rumuswigo(nomor_db, prize_2D)
@@ -178,6 +182,12 @@ func Update_transaksi(idcompany string) bool {
 					fmt.Println(msg_update_detail)
 				}
 				flag_detail = true
+
+				key_redis_invoice_client := invoice_client_redis + "_" + strings.ToLower(idcompany) + "_" + strings.ToLower(username_client_db)
+				val_invoice_client := helpers.DeleteRedis(key_redis_invoice_client)
+				fmt.Println("")
+				fmt.Printf("Redis Delete INVOICE : %d - %s \r", val_invoice_client, key_redis_invoice_client)
+				fmt.Println("")
 			}
 			defer row.Close()
 			if flag_detail {
@@ -206,6 +216,11 @@ func Update_transaksi(idcompany string) bool {
 		} else {
 			fmt.Println(msg_update)
 		}
+		key_redis_result := invoice_result_redis + "_" + strings.ToLower(idcompany)
+		val_result := helpers.DeleteRedis(key_redis_result)
+		fmt.Println("")
+		fmt.Printf("Redis Delete RESULT : %d - %s \r", val_result, key_redis_result)
+		fmt.Println("")
 	}
 
 	return flag_compileupdate
