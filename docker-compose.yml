@@ -1,0 +1,8 @@
+version: '2'
+
+services:
+  engine-timer:
+    container_name: engine-timer
+    image: engine-timer:0.0.1
+    build: .
+    restart: always
