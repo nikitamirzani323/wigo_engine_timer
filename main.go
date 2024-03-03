@@ -36,7 +36,7 @@ func main() {
 
 	db.Init()
 	invoice = Save_transaksi("nuke", "IDR")
-
+	fmt.Printf("Create First new invoice %s\n", invoice)
 	for flag {
 		flag = loop_count(time_game, time_compile)
 	}
@@ -59,21 +59,23 @@ func loop_count(sec, compile int) bool {
 func loop_compile(sec int) bool {
 	flag_compile := false
 	fmt.Println("")
-	for sec >= 0 {
-		time_status = "LOCK"
-		data_send = invoice + "|0|" + strconv.Itoa(sec%60) + "|" + time_status
-		fmt.Printf("%s:%.2d:%.2d:%s\r", invoice, 0, sec%60, time_status)
-		senddata(data_send)
-		// fmt.Printf("COMPILE %.2d\r", sec%60)
-		time.Sleep(1 * time.Second)
-		sec--
-	}
-	invoice = Save_transaksi("nuke", "IDR")
-	flag_compile = Update_transaksi("nuke")
-	if !flag_compile {
-		invoice = Save_transaksi("nuke", "IDR")
-	}
+	// for sec >= 0 {
+	// 	time.Sleep(1 * time.Second)
+	// 	sec--
+	// }
+	invoice = ""
+	time_status = "LOCK"
+	data_send = invoice + "|0|" + strconv.Itoa(sec%60) + "|" + time_status
+	fmt.Printf("%s:%.2d:%.2d:%s\r", invoice, 0, sec%60, time_status)
+	senddata(data_send)
 
+	flag_compile = Update_transaksi("nuke")
+	fmt.Printf("status compile %t\n", flag_compile)
+	if flag_compile {
+		invoice = Save_transaksi("nuke", "IDR")
+		fmt.Printf("Create new invoice %s\n", invoice)
+	}
+	fmt.Printf("status compile 2 %t\n", flag_compile)
 	return flag_compile
 }
 func Save_transaksi(idcompany, idcurr string) string {
@@ -112,7 +114,7 @@ func Save_transaksi(idcompany, idcurr string) string {
 	return id_invoice
 }
 func Update_transaksi(idcompany string) bool {
-	flag_compile := false
+	flag_compileupdate := false
 	tglnow, _ := goment.New()
 	id_invoice := _GetInvoice(idcompany)
 	prize_2D := helpers.GenerateNumber(2)
@@ -195,8 +197,10 @@ func Update_transaksi(idcompany string) bool {
 				if !flag_update_parent {
 					fmt.Println(msg_update_parent)
 				} else {
-					flag_compile = true
+					flag_compileupdate = true
 				}
+			} else {
+				flag_compileupdate = true
 			}
 
 		} else {
@@ -204,7 +208,7 @@ func Update_transaksi(idcompany string) bool {
 		}
 	}
 
-	return flag_compile
+	return flag_compileupdate
 }
 func senddata(data string) {
 	helpers.SetPublish("payload", data)
@@ -215,23 +219,23 @@ func _GetInvoice(idcompany string) string {
 
 	_, tbl_trx_transaksi, _, _ := models.Get_mappingdatabase(idcompany)
 
-	resultwigo := ""
+	idtransaksi := ""
 
 	sql_select := ""
 	sql_select += "SELECT "
 	sql_select += "idtransaksi "
 	sql_select += "FROM " + tbl_trx_transaksi + " "
-	sql_select += "WHERE resultwigo='' LIMIT 1"
+	sql_select += "WHERE resultwigo='' ORDER BY idtransaksi DESC LIMIT 1"
 
 	row := con.QueryRowContext(ctx, sql_select)
-	switch e := row.Scan(&resultwigo); e {
+	switch e := row.Scan(&idtransaksi); e {
 	case sql.ErrNoRows:
 	case nil:
 	default:
 		helpers.ErrorCheck(e)
 	}
 
-	return resultwigo
+	return idtransaksi
 }
 func _GetTotalBetWin_Transaksi(table, idtransaksi string) (int, int) {
 	con := db.CreateCon()
